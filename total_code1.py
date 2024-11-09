@@ -254,8 +254,8 @@ def B_H_plotter(df: pd.DataFrame=None,
     fig, ax = plt.subplots()
 
     # Plot the B vs H using a plt.scatter curve? 
-    ax.errorbar(x=df['H field (H)'],
-                y=df['B field (T)'],
+    ax.errorbar(x=df['H Field (H)'],
+                y=df['B Field (T)'],
                 xerr=df['H Field Error (T)'],
                 y_err=df['B Field Error (T)'],
                 fmt='o',
@@ -273,3 +273,34 @@ def B_H_plotter(df: pd.DataFrame=None,
 
     # Now calculate the area underneath the curve. We can use the same
     # Trapezium rule as before for this: 
+    core_loss = np.trapz(df['B Field (T)'], df['H Field (H)'])
+
+    # Now calculate the error on the core losses: 
+    # convert each of the B and H columns to np arrays which are more flexible
+    B_field = np.array(df['B Field (T)'])
+    B_field_error = np.array(df['B Field Error (T)'])
+    H_field = np.array(df['H Field (H)'])
+    H_field_error = np.array(df['H Field Error (T)'])
+
+    # Create an initial array for the error on the area of each trapezoid
+    trapezoid_errors = np.zeros(len(B_field) - 1)
+
+    # The formula will have to be iterative (because it involves taking elements
+    # i and i±1)
+    for i in range(len(B_field) - 1):
+        # Calculate the error in the B field sums divided by 2:
+        B_sum_error_2 = np.sqrt(B_field_error[i]**(2) + B_field_error[i+1]**(2))/2
+
+        # Calculate the error on the difference of the H fields: 
+        H_diff_error = np.sqrt(H_field_error[i+1]**(2) + H_field_error[i]**(2))
+
+        # Now calculate the total error on this trapezoid and assign the error to an element
+        # of trapeziod_errors
+        trapezoid_area = (B_field[i] + B_field[i+1]) / 2 * (H_field[i+1] - H_field[i])
+        trapezoid_errors[i] = trapezoid_area * np.sqrt((B_sum_error_2)/(B_field[i] + B_field[i+1]) / 2)**(2) + ((H_diff_error)/((H_field[i+1] - H_field[i])))**(2)
+
+    # The error on the area of each trapziod has been computed, now calculate 
+    # the error on the sum of them
+    total_error = np.sqrt(np.sum(trapezoid_errors**2))
+
+    return (core_loss, total_error)
